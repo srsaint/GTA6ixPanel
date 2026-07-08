@@ -202,11 +202,11 @@ export default function AdminPanel({
                   <td>{license.note || "-"}</td>
                   <td className="actions">
                     <button
-                      disabled={busyAction !== null || !revealedKeys[license.id]}
+                      disabled={busyAction !== null}
                       title={revealedKeys[license.id] ? "Copy full license key" : "Full key is only available immediately after generation"}
                       onClick={() => copyLicenseKey(license)}
                     >
-                      Copy key
+                      {revealedKeys[license.id] ? "Copy key" : "Copy unavailable"}
                     </button>
                     <button
                       disabled={busyAction !== null}
