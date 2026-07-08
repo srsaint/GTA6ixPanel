@@ -66,6 +66,7 @@ export default function AdminPanel({
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
   async function load() {
+    setError("");
     const licenseResponse = await fetch("/api/admin/licenses", { cache: "no-store" });
     const licenseData = await licenseResponse.json();
     if (licenseResponse.ok) setLicenses(licenseData.licenses);
@@ -108,13 +109,17 @@ export default function AdminPanel({
     await load();
   }
 
-  async function postAction(actionKey: string, url: string, successMessage: string, body?: unknown) {
+  async function postAction(actionKey: string, method: "POST" | "DELETE", url: string, successMessage: string, body?: unknown) {
     setError("");
     setNotice("");
     setBusyAction(actionKey);
 
     try {
-      const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body ?? {}) });
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: method === "DELETE" ? undefined : JSON.stringify(body ?? {}),
+      });
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
@@ -160,7 +165,10 @@ export default function AdminPanel({
       )}
 
       <section className="card">
-        <h2>Licenses</h2>
+        <div className="section-heading-row">
+          <h2>Licenses</h2>
+          <button className="button secondary compact" onClick={load} disabled={busyAction !== null}>Refresh</button>
+        </div>
         <div className="table-wrap">
           <table>
             <thead><tr><th>Prefix</th><th>Status</th><th>Used</th><th>Devices</th><th>Time left</th><th>Expires</th><th>Creator</th><th>Note</th><th>Actions</th></tr></thead>
@@ -180,6 +188,7 @@ export default function AdminPanel({
                       disabled={busyAction !== null}
                       onClick={() => postAction(
                         `ban:${license.id}`,
+                        "POST",
                         `/api/admin/licenses/${license.id}/ban`,
                         license.status === "BANNED" ? `License ${license.prefix} unbanned.` : `License ${license.prefix} banned.`,
                         { banned: license.status !== "BANNED" }
@@ -191,11 +200,27 @@ export default function AdminPanel({
                       disabled={busyAction !== null}
                       onClick={() => postAction(
                         `reset:${license.id}`,
+                        "POST",
                         `/api/admin/licenses/${license.id}/reset-device`,
                         `Device binding reset for ${license.prefix}.`
                       )}
                     >
                       {busyAction === `reset:${license.id}` ? "Resetting..." : "Reset device"}
+                    </button>
+                    <button
+                      disabled={busyAction !== null}
+                      onClick={() => {
+                        if (confirm(`Remove license ${license.prefix}? This cannot be undone.`)) {
+                          postAction(
+                            `delete:${license.id}`,
+                            "DELETE",
+                            `/api/admin/licenses/${license.id}`,
+                            `License ${license.prefix} removed.`
+                          );
+                        }
+                      }}
+                    >
+                      {busyAction === `delete:${license.id}` ? "Removing..." : "Remove"}
                     </button>
                   </td>
                 </tr>
