@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AdminRole {
+  OWNER
+  RESELLER
+}
+
+enum LicenseStatus {
+  ACTIVE
+  BANNED
+}
+
+model Admin {
+  id             String        @id @default(cuid())
+  username       String        @unique
+  email          String?       @unique
+  passwordHash   String
+  role           AdminRole     @default(RESELLER)
+  disabled       Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  createdById    String?
+  createdBy      Admin?        @relation("AdminCreatedBy", fields: [createdById], references: [id])
+  createdAdmins  Admin[]       @relation("AdminCreatedBy")
+  invites        AdminInvite[] @relation("InviteCreator")
+  usedInviteId   String?
+  usedInvite     AdminInvite?  @relation("InviteUsers", fields: [usedInviteId], references: [id])
+  licenses       License[]
+  auditLogs      AuditLog[]
+}
+
+model AdminInvite {
+  id                  String    @id @default(cuid())
+  inviteKeyHash       String    @unique
+  inviteKeyPrefix     String
+  createdById         String
+  createdBy           Admin     @relation("InviteCreator", fields: [createdById], references: [id])
+  role                AdminRole @default(RESELLER)
+  maxUses             Int       @default(1)
+  uses                Int       @default(0)
+  expiresAt           DateTime?
+  disabled            Boolean   @default(false)
+  maxLicenseDays      Int       @default(30)
+  maxLicenseCount     Int?
+  note                String?
+  createdAt           DateTime  @default(now())
+  adminsCreated       Admin[]   @relation("InviteUsers")
+}
+
+model License {
+  id               String         @id @default(cuid())
+  licenseKeyHash   String         @unique
+  licenseKeyPrefix String
+  createdById      String
+  createdBy        Admin          @relation(fields: [createdById], references: [id])
+  note             String?
+  status           LicenseStatus  @default(ACTIVE)
+  maxDevices       Int            @default(1)
+  durationDays     Int
+  expiresAt        DateTime
+  firstActivatedAt DateTime?
+  createdAt        DateTime       @default(now())
+  devices          LicenseDevice[]
+
+  @@index([createdById])
+  @@index([expiresAt])
+  @@index([status])
+}
+
+model LicenseDevice {
+  id            String   @id @default(cuid())
+  licenseId     String
+  license       License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  deviceIdHash  String
+  activatedAt   DateTime @default(now())
+  lastSeenAt    DateTime @default(now())
+  userAgentHash String?
+
+  @@unique([licenseId, deviceIdHash])
+  @@index([deviceIdHash])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  adminId    String?
+  admin      Admin?   @relation(fields: [adminId], references: [id])
+  action     String
+  targetType String?
+  targetId   String?
+  ipHash     String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([adminId])
+  @@index([createdAt])
+}
+
+model VerifyAttempt {
+  id           String   @id @default(cuid())
+  keyPrefix    String?
+  deviceIdHash String?
+  ipHash       String?
+  result       String
+  createdAt    DateTime @default(now())
+
+  @@index([ipHash, createdAt])
+  @@index([keyPrefix, createdAt])
+}
