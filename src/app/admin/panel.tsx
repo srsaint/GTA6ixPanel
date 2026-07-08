@@ -41,6 +41,8 @@ export default function AdminPanel({
   const [generated, setGenerated] = useState("");
   const [generatedInvite, setGeneratedInvite] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busyAction, setBusyAction] = useState<string | null>(null);
 
   async function load() {
     const licenseResponse = await fetch("/api/admin/licenses", { cache: "no-store" });
@@ -59,6 +61,7 @@ export default function AdminPanel({
   async function createLicense(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setNotice("");
     setGenerated("");
     const body = Object.fromEntries(new FormData(event.currentTarget).entries());
     const response = await fetch("/api/admin/licenses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -73,6 +76,7 @@ export default function AdminPanel({
   async function createInvite(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setNotice("");
     setGeneratedInvite("");
     const body = Object.fromEntries(new FormData(event.currentTarget).entries());
     const response = await fetch("/api/admin/invites", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -83,14 +87,31 @@ export default function AdminPanel({
     await load();
   }
 
-  async function postAction(url: string, body?: unknown) {
-    await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body ?? {}) });
-    await load();
+  async function postAction(actionKey: string, url: string, successMessage: string, body?: unknown) {
+    setError("");
+    setNotice("");
+    setBusyAction(actionKey);
+
+    try {
+      const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body ?? {}) });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setError(data.message || "Action failed.");
+        return;
+      }
+
+      setNotice(successMessage);
+      await load();
+    } finally {
+      setBusyAction(null);
+    }
   }
 
   return (
     <div className="admin-stack">
       {error && <p className="error">{error}</p>}
+      {notice && <p className="success action-notice">{notice}</p>}
       <section className="card">
         <h2>Create license</h2>
         <form className="form inline" onSubmit={createLicense}>
@@ -124,7 +145,7 @@ export default function AdminPanel({
             <thead><tr><th>Prefix</th><th>Status</th><th>Devices</th><th>Expires</th><th>Creator</th><th>Note</th><th>Actions</th></tr></thead>
             <tbody>
               {licenses.map((license) => (
-                <tr key={license.id}>
+                <tr key={license.id} className={busyAction?.endsWith(license.id) ? "row-busy" : ""}>
                   <td>{license.prefix}</td>
                   <td>{license.status}</td>
                   <td>{license.deviceCount}/{license.maxDevices}</td>
@@ -132,8 +153,27 @@ export default function AdminPanel({
                   <td>{license.createdBy}</td>
                   <td>{license.note || "-"}</td>
                   <td className="actions">
-                    <button onClick={() => postAction(`/api/admin/licenses/${license.id}/ban`, { banned: license.status !== "BANNED" })}>{license.status === "BANNED" ? "Unban" : "Ban"}</button>
-                    <button onClick={() => postAction(`/api/admin/licenses/${license.id}/reset-device`)}>Reset device</button>
+                    <button
+                      disabled={busyAction !== null}
+                      onClick={() => postAction(
+                        `ban:${license.id}`,
+                        `/api/admin/licenses/${license.id}/ban`,
+                        license.status === "BANNED" ? `License ${license.prefix} unbanned.` : `License ${license.prefix} banned.`,
+                        { banned: license.status !== "BANNED" }
+                      )}
+                    >
+                      {busyAction === `ban:${license.id}` ? "Saving..." : license.status === "BANNED" ? "Unban" : "Ban"}
+                    </button>
+                    <button
+                      disabled={busyAction !== null}
+                      onClick={() => postAction(
+                        `reset:${license.id}`,
+                        `/api/admin/licenses/${license.id}/reset-device`,
+                        `Device binding reset for ${license.prefix}.`
+                      )}
+                    >
+                      {busyAction === `reset:${license.id}` ? "Resetting..." : "Reset device"}
+                    </button>
                   </td>
                 </tr>
               ))}
