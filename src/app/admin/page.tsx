@@ -37,6 +37,7 @@ export default async function AdminPage() {
     deviceCount: license.devices.length,
     durationDays: license.durationDays,
     expiresAt: license.expiresAt.getTime(),
+    firstActivatedAt: license.firstActivatedAt?.getTime() ?? null,
     createdAt: license.createdAt.getTime(),
   }));
 

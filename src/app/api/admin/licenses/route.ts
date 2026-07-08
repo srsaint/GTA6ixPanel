@@ -84,6 +84,7 @@ export async function POST(request: Request) {
         deviceCount: 0,
         durationDays: license.durationDays,
         expiresAt: license.expiresAt.getTime(),
+        firstActivatedAt: null,
         createdAt: license.createdAt.getTime(),
       },
     }, 201);

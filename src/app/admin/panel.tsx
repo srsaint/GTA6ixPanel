@@ -12,6 +12,7 @@ type License = {
   deviceCount: number;
   durationDays: number;
   expiresAt: number;
+  firstActivatedAt: number | null;
   createdAt: number;
 };
 
@@ -26,6 +27,26 @@ type Invite = {
   expiresAt: number | null;
   note: string | null;
 };
+
+function formatTimeLeft(timestamp: number) {
+  const diff = timestamp - Date.now();
+  if (diff <= 0) return "Expired";
+
+  const totalMinutes = Math.floor(diff / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) return `${days}d ${hours}h left`;
+  if (hours > 0) return `${hours}h ${minutes}m left`;
+  return `${Math.max(1, minutes)}m left`;
+}
+
+function formatUsedStatus(license: License) {
+  if (license.firstActivatedAt) return `Used ${new Date(license.firstActivatedAt).toLocaleString()}`;
+  if (license.deviceCount > 0) return "Used";
+  return "Unused";
+}
 
 export default function AdminPanel({
   adminRole,
@@ -142,13 +163,15 @@ export default function AdminPanel({
         <h2>Licenses</h2>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Prefix</th><th>Status</th><th>Devices</th><th>Expires</th><th>Creator</th><th>Note</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Prefix</th><th>Status</th><th>Used</th><th>Devices</th><th>Time left</th><th>Expires</th><th>Creator</th><th>Note</th><th>Actions</th></tr></thead>
             <tbody>
               {licenses.map((license) => (
                 <tr key={license.id} className={busyAction?.endsWith(license.id) ? "row-busy" : ""}>
                   <td>{license.prefix}</td>
                   <td>{license.status}</td>
+                  <td><span className={license.firstActivatedAt || license.deviceCount > 0 ? "pill used" : "pill unused"}>{formatUsedStatus(license)}</span></td>
                   <td>{license.deviceCount}/{license.maxDevices}</td>
+                  <td>{formatTimeLeft(license.expiresAt)}</td>
                   <td>{new Date(license.expiresAt).toLocaleDateString()}</td>
                   <td>{license.createdBy}</td>
                   <td>{license.note || "-"}</td>
