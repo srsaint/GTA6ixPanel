@@ -259,7 +259,7 @@ export default function AdminPanel({
           <h2>Referral keys</h2>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Prefix</th><th>Uses</th><th>Max days</th><th>Max licenses</th><th>Expires</th><th>Note</th></tr></thead>
+              <thead><tr><th>Prefix</th><th>Uses</th><th>Max days</th><th>Max licenses</th><th>Expires</th><th>Note</th><th>Actions</th></tr></thead>
               <tbody>
                 {invites.map((invite) => (
                   <tr key={invite.id}>
@@ -269,6 +269,23 @@ export default function AdminPanel({
                     <td>{invite.maxLicenseCount ?? "Unlimited"}</td>
                     <td>{invite.expiresAt ? new Date(invite.expiresAt).toLocaleDateString() : "Never"}</td>
                     <td>{invite.note || "-"}</td>
+                    <td className="actions">
+                      <button
+                        disabled={busyAction !== null || invite.disabled}
+                        onClick={() => {
+                          if (confirm(`Remove referral ${invite.prefix}? This will disable reseller accounts created with it.`)) {
+                            postAction(
+                              `invite:${invite.id}`,
+                              "DELETE",
+                              `/api/admin/invites/${invite.id}`,
+                              `Referral ${invite.prefix} removed and linked reseller access disabled.`
+                            );
+                          }
+                        }}
+                      >
+                        {busyAction === `invite:${invite.id}` ? "Removing..." : invite.disabled ? "Removed" : "Remove"}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
