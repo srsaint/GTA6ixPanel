@@ -61,6 +61,7 @@ export default function AdminPanel({
   const [invites, setInvites] = useState<Invite[]>(initialInvites);
   const [generated, setGenerated] = useState("");
   const [generatedInvite, setGeneratedInvite] = useState("");
+  const [revealedKeys, setRevealedKeys] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -90,9 +91,25 @@ export default function AdminPanel({
     const data = await response.json();
     if (!response.ok) return setError(data.message || "Failed to create license.");
     setGenerated(data.key);
-    if (data.license) setLicenses((current) => [data.license, ...current]);
+    if (data.license) {
+      setLicenses((current) => [data.license, ...current]);
+      setRevealedKeys((current) => ({ ...current, [data.license.id]: data.key }));
+    }
     event.currentTarget.reset();
     await load();
+  }
+
+  async function copyLicenseKey(license: License) {
+    const key = revealedKeys[license.id];
+    if (!key) {
+      setError("Full key is only available immediately after generation. Create a new key if you need to copy it again.");
+      setNotice("");
+      return;
+    }
+
+    await navigator.clipboard.writeText(key);
+    setError("");
+    setNotice(`Copied ${license.prefix} to clipboard.`);
   }
 
   async function createInvite(event: React.FormEvent<HTMLFormElement>) {
@@ -184,6 +201,13 @@ export default function AdminPanel({
                   <td>{license.createdBy}</td>
                   <td>{license.note || "-"}</td>
                   <td className="actions">
+                    <button
+                      disabled={busyAction !== null || !revealedKeys[license.id]}
+                      title={revealedKeys[license.id] ? "Copy full license key" : "Full key is only available immediately after generation"}
+                      onClick={() => copyLicenseKey(license)}
+                    >
+                      Copy key
+                    </button>
                     <button
                       disabled={busyAction !== null}
                       onClick={() => postAction(
