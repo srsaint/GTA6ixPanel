@@ -11,6 +11,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     if (admin.role !== "OWNER" && license.createdById !== admin.id) return apiError("forbidden", "Not allowed.", 403);
 
     await prisma.licenseDevice.deleteMany({ where: { licenseId: id } });
+    await prisma.licenseSession.deleteMany({ where: { licenseId: id } });
     await prisma.auditLog.create({ data: { adminId: admin.id, action: "license.reset_devices", targetType: "license", targetId: id } });
     return apiOk({});
   } catch {

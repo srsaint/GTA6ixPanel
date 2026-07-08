@@ -1,4 +1,5 @@
 import { z } from "zod";
+import crypto from "crypto";
 import { hashOptional, hashSecret, keyPrefix } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
 import { apiError, apiOk } from "@/lib/responses";
@@ -85,5 +86,15 @@ export async function POST(request: Request) {
   }
 
   const verifiedUntil = Math.min(Date.now() + sessionHours() * 60 * 60 * 1000, license.expiresAt.getTime());
-  return finish("ok", licenseOk({ verifiedUntil, expiresAt: license.expiresAt.getTime(), licenseStatus: license.status }));
+  const sessionToken = crypto.randomBytes(32).toString("base64url");
+  await prisma.licenseSession.create({
+    data: {
+      tokenHash: hashSecret(sessionToken),
+      licenseId: license.id,
+      deviceIdHash,
+      expiresAt: new Date(verifiedUntil),
+    },
+  });
+
+  return finish("ok", licenseOk({ sessionToken, verifiedUntil, expiresAt: license.expiresAt.getTime(), licenseStatus: license.status }));
 }

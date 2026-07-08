@@ -67,6 +67,7 @@ model License {
   firstActivatedAt DateTime?
   createdAt        DateTime       @default(now())
   devices          LicenseDevice[]
+  sessions         LicenseSession[]
 
   @@index([createdById])
   @@index([expiresAt])
@@ -84,6 +85,21 @@ model LicenseDevice {
 
   @@unique([licenseId, deviceIdHash])
   @@index([deviceIdHash])
+}
+
+model LicenseSession {
+  id           String   @id @default(cuid())
+  tokenHash    String   @unique
+  licenseId    String
+  license      License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  deviceIdHash String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  lastSeenAt   DateTime @default(now())
+
+  @@index([licenseId])
+  @@index([deviceIdHash])
+  @@index([expiresAt])
 }
 
 model AuditLog {
